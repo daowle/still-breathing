@@ -1,0 +1,122 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05060a; color: #f3efe6; overflow: hidden;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, "Noto Serif KR", serif; }
+canvas#field { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+
+.title { position: fixed; top: 28px; left: 32px; letter-spacing: .04em; }
+.title h1 { margin: 0; font-weight: 400; font-size: 22px; font-style: italic; }
+.title p { margin: 4px 0 0; font-size: 13px; opacity: .7; max-width: 340px; line-height: 1.5; }
+
+.price { position: fixed; top: 28px; right: 32px; text-align: right; }
+.price .label { font-size: 12px; opacity: .65; letter-spacing: .12em; text-transform: uppercase; }
+.price .value { font-size: 44px; font-variant-numeric: tabular-nums; transition: color .6s; }
+.price .sold { font-size: 12px; opacity: .65; }
+
+.inscriptions { position: fixed; inset: 0; pointer-events: none; }
+.inscriptions span { position: absolute; transform: translateX(-50%); font-size: 12px; font-style: italic;
+  opacity: .5; white-space: nowrap; text-shadow: 0 0 12px rgba(0,0,0,.9); animation: breathe 7s ease-in-out infinite; }
+@keyframes breathe { 50% { opacity: .28; } }
+.absorb { position: fixed; inset: 0; pointer-events: none; }
+.absorb span { position: fixed; font-size: 15px; font-style: italic; color: #fff8ec; white-space: pre;
+  text-shadow: 0 0 10px rgba(255,240,210,.9); will-change: transform, opacity; }
+.sound { margin-top: 10px; background: none; color: inherit; border: 1px solid rgba(255,255,255,.25); padding: 4px 10px;
+  font-size: 12px; opacity: .7; }
+.sound:hover { opacity: 1; }
+
+.chat { position: fixed; left: 32px; bottom: 28px; width: min(440px, calc(100vw - 64px)); }
+.log { max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px;
+  mask-image: linear-gradient(transparent, #000 18%); }
+.msg { line-height: 1.5; font-size: 16px; text-shadow: 0 1px 14px rgba(0,0,0,.85); }
+.msg.you { align-self: flex-end; opacity: .75; font-style: italic; text-align: right; max-width: 85%; }
+.msg.painting { max-width: 95%; }
+.msg.painting::before { content: "— "; opacity: .5; }
+form { display: flex; gap: 8px; }
+input { flex: 1; background: rgba(10,10,16,.55); border: 1px solid rgba(255,255,255,.22); color: inherit;
+  padding: 12px 14px; font: inherit; font-size: 15px; border-radius: 2px; backdrop-filter: blur(6px); }
+input:focus { outline: none; border-color: rgba(255,255,255,.55); }
+button { background: rgba(243,239,230,.92); color: #0a0a10; border: 0; padding: 0 18px; font: inherit;
+  cursor: pointer; border-radius: 2px; }
+button:disabled { opacity: .4; cursor: default; }
+
+.deal { margin-top: 14px; padding: 14px; background: rgba(8,8,14,.7); border: 1px solid rgba(255,255,255,.2);
+  backdrop-filter: blur(8px); display: none; }
+.deal.show { display: block; }
+.deal p { margin: 0 0 10px; font-size: 14px; line-height: 1.5; }
+.hint { font-size: 12px; opacity: .55; margin-top: 8px; }
+
+.born { position: fixed; inset: 0; display: none; place-items: center; background: rgba(0,0,0,.55);
+  backdrop-filter: blur(4px); text-align: center; padding: 24px; }
+.born.show { display: grid; }
+.born a { color: #fff; font-size: 18px; }
+
+/* child page */
+.child-card { position: fixed; left: 32px; bottom: 32px; max-width: 460px; }
+.child-card .greet { font-size: 22px; line-height: 1.45; text-shadow: 0 1px 16px rgba(0,0,0,.8); min-height: 2em; }
+.child-card .meta { margin-top: 14px; font-size: 13px; opacity: .65; line-height: 1.6; }
+
+/* ---- 공통 ---- */
+.kicker { font-size: 11px; letter-spacing: .32em; opacity: .65; margin-bottom: 8px; }
+a.minor { color: inherit; font-size: 12px; opacity: .65; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.25); }
+a.minor:hover { opacity: 1; }
+.title .minor { display: inline-block; margin-top: 10px; }
+
+/* ---- 새끼 그림 = 공유 카드 ---- */
+.child-page .title h1 { font-size: 34px; max-width: 520px; line-height: 1.15; }
+.child-page .price div { margin-top: 10px; }
+.child-card blockquote { margin: 14px 0 0; font-style: italic; font-size: 17px; line-height: 1.5; opacity: .9;
+  text-shadow: 0 1px 14px rgba(0,0,0,.85); }
+.share { display: flex; gap: 8px; margin-top: 18px; }
+.share button { padding: 11px 18px; font-size: 14px; }
+.share button.ghost { background: rgba(10,10,16,.45); color: inherit; border: 1px solid rgba(255,255,255,.35); }
+
+/* ---- 내 조각 보관함 ---- */
+body.mine-page { overflow-y: auto; background: radial-gradient(ellipse at top, #141826, #05060a 60%); }
+.mine-page header { padding: 48px 40px 8px; }
+.mine-page h1 { margin: 0; font-weight: 400; font-style: italic; font-size: 40px; }
+.mine-page header p { opacity: .7; max-width: 520px; line-height: 1.5; }
+.cabinet { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 28px; padding: 28px 40px 80px; }
+.piece-card { color: inherit; text-decoration: none; display: block; transition: transform .4s; }
+.piece-card:hover { transform: translateY(-4px); }
+.piece-card img { width: 100%; aspect-ratio: 4/5; object-fit: cover; display: block; border-radius: 2px;
+  background: #080a10; box-shadow: 0 20px 50px rgba(0,0,0,.5); }
+.piece-card .cap { padding: 12px 2px; }
+.piece-card .t { font-style: italic; font-size: 17px; }
+.piece-card .d { font-size: 12px; opacity: .55; margin-top: 3px; }
+.piece-card .f { font-size: 13px; opacity: .75; margin-top: 8px; line-height: 1.45; }
+.piece-card.gone { opacity: .35; pointer-events: none; }
+.empty { padding: 0 40px; opacity: .6; }
+
+/* ---- 계산서 / 영수증: 해외 갤러리 영수증 느낌 ---- */
+.tab, .receipt { font-family: "IBM Plex Mono", "SF Mono", Menlo, Consolas, "Courier New", monospace; }
+.tab { margin-top: 14px; width: 280px; margin-left: auto; text-align: left; font-size: 12px;
+  background: rgba(243,239,230,.92); color: #24211c; padding: 12px 14px 14px; transform: rotate(.6deg);
+  box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+.tab-h { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; opacity: .6;
+  border-bottom: 1px dashed rgba(36,33,28,.5); padding-bottom: 6px; margin-bottom: 6px; }
+.tl { display: flex; justify-content: space-between; gap: 12px; line-height: 1.75; }
+.tl span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl b { font-weight: 500; font-variant-numeric: tabular-nums; }
+.tl.new { animation: print .9s ease-out; }
+@keyframes print { from { opacity: 0; transform: translateY(-6px); background: rgba(255,230,160,.8); } to { opacity: 1; } }
+.receipt { margin-top: 16px; background: #f3efe6; color: #24211c; padding: 16px 18px; font-size: 12.5px;
+  max-width: 380px; transform: rotate(-.5deg); box-shadow: 0 14px 36px rgba(0,0,0,.5); }
+.receipt > div { display: flex; justify-content: space-between; gap: 14px; line-height: 1.8; }
+.receipt span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.receipt b { font-weight: 500; font-variant-numeric: tabular-nums; }
+.receipt .r-head { font-size: 11px; letter-spacing: .12em; opacity: .7; border-bottom: 1px dashed rgba(36,33,28,.5); margin-bottom: 6px; padding-bottom: 4px; }
+.receipt .r-total { border-top: 1px dashed rgba(36,33,28,.5); margin-top: 6px; padding-top: 6px; font-size: 15px; }
+.receipt .r-total b { font-weight: 700; }
+.receipt .r-day { font-style: italic; opacity: .75; }
+
+/* ---- 영수증 소각 의식 (after Yves Klein) ---- */
+@property --burn { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
+.ritual { margin-top: 14px; max-width: 400px; font-size: 13px; line-height: 1.55; opacity: .85; }
+.ritual p { margin: 0 0 10px; }
+.ritual button.armed { border-color: #ff9a4a; color: #ffb877; }
+.receipt.burning { animation: burn 2.6s ease-in forwards;
+  -webkit-mask-image: radial-gradient(circle at 85% 105%, transparent var(--burn), #000 calc(var(--burn) + 6%));
+          mask-image: radial-gradient(circle at 85% 105%, transparent var(--burn), #000 calc(var(--burn) + 6%));
+  filter: drop-shadow(0 0 6px #ff7a2a) drop-shadow(0 0 18px rgba(255,120,40,.6)); }
+@keyframes burn { 0% { --burn: 0%; } 100% { --burn: 150%; } }
+.ritual button { padding: 9px 16px; font-size: 13px; background: rgba(10,10,16,.45); color: inherit;
+  border: 1px solid rgba(255,255,255,.35); cursor: pointer; font-family: inherit; }

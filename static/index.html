@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Still Breathing — a painting that haggles</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<canvas id="field"></canvas>
+<div class="inscriptions" id="inscriptions"></div>
+<div class="absorb" id="absorb"></div>
+
+<div class="title">
+  <h1>Still Breathing</h1>
+  <p>A painting that sells pieces of itself. Tell it about your day. Haggle. The piece you take is painted from you — and the hole it leaves remembers you.</p>
+  <a class="minor" id="mineLink" href="/mine" hidden>my pieces →</a>
+</div>
+
+<div class="price">
+  <div class="label">asking</div>
+  <div class="value" id="price">$88.00</div>
+  <div class="sold" id="sold"></div>
+  <button class="sound" id="sound" type="button">♪ sound off</button>
+  <div class="tab" id="tab" hidden><div class="tab-h">your tab</div><div id="tabLines"></div></div>
+</div>
+
+<div class="chat">
+  <div class="log" id="log"></div>
+  <form id="form">
+    <input id="input" maxlength="500" autocomplete="off" placeholder="Say something to the painting…" autofocus>
+    <button id="send">Say</button>
+  </form>
+  <div class="deal" id="deal">
+    <p>Agreed at <b id="dealPrice"></b>. The glowing piece breaks off and becomes yours — a living child painting. The hole it leaves stays forever, with your words at its edge.</p>
+    <div id="paypal-buttons"></div>
+    <div class="hint">PayPal sandbox — no real money moves.</div>
+  </div>
+</div>
+
+<div class="born" id="born">
+  <div>
+    <p>The painting is one piece smaller now.</p>
+    <p><a id="childLink" href="#">Meet the piece you took →</a></p>
+  </div>
+</div>
+
+<script type="module">
+import { createField } from "/static/field.js";
+import { createAudio } from "/static/audio.js";
+import { rememberPiece, myPieces, money } from "/static/share.js";
+const field = createField(document.getElementById("field"));
+const audio = createAudio();
+const $ = (id) => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+let turns = 0, sessionId, price = 88, mood = { warmth: 0.4, agitation: 0.2, openness: 0.3 }, dealPrice = null;
+
+const post = (url, body) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body || {}) }).then(async (r) => ({ ok: r.ok, data: await r.json() }));
+
+function say(who, text) {
+  const d = document.createElement("div"); d.className = "msg " + who; d.textContent = text;
+  $("log").appendChild(d); $("log").scrollTop = 1e9;
+}
+function showPrice(p) { if (p != null) { price = p; $("price").textContent = "$" + Number(p).toFixed(2); } }
+function updateGlow() {  // 흥정이 무르익을수록 팔릴 조각의 이음매가 빛난다
+  field.setGlow(dealPrice ? 1 : 0.1 + 0.55 * mood.openness * mood.warmth + 0.3 * Math.max(0, 1 - price / 88));
+}
+function showTab(lines) {  // 내어 준 것이 한 줄씩 계산서에 찍힌다
+  if (!lines || !lines.length) return;
+  $("tab").hidden = false; const box = $("tabLines"); const had = box.children.length; box.innerHTML = "";
+  lines.slice(-6).forEach((x, i, arr) => {
+    const d = document.createElement("div"); d.className = "tl " + (x.amount < 0 ? "minus" : "plus");
+    const l = document.createElement("span"); l.textContent = x.label;
+    const r = document.createElement("b"); r.textContent = money(x.amount);
+    d.append(l, r); box.appendChild(d);
+    if (i === arr.length - 1 && lines.length > had) d.classList.add("new");
+  });
+}
+function react(gesture) { field.gesture(gesture); audio.play(gesture); }
+
+// 입력한 말이 글자 입자가 되어 조각 속으로 빨려 들어간다
+function absorbText(text) {
+  const from = $("input").getBoundingClientRect(), to = field.pieceScreen();
+  const chars = [...text].slice(0, 90);
+  field.inhale((1500 + chars.length * 22) / 1000);  // 배경이 숨을 들이쉬며 조각 쪽으로 감긴다
+  chars.forEach((ch, i) => {
+    const s = document.createElement("span"); s.textContent = ch;
+    const x0 = from.left + 14 + (i % 40) * 9, y0 = from.top + 12;
+    s.style.left = x0 + "px"; s.style.top = y0 + "px"; $("absorb").appendChild(s);
+    const ang = Math.random() * Math.PI * 2, rr = Math.random() * to.r * 0.6;
+    const dx = to.x + Math.cos(ang) * rr - x0, dy = to.y + Math.sin(ang) * rr - y0;
+    const midx = dx * 0.4 + (Math.random() - 0.5) * 160, midy = dy * 0.6 - 60 - Math.random() * 80;
+    s.animate([
+      { transform: "translate(0,0) scale(1)", opacity: 0.9 },
+      { transform: `translate(${midx}px,${midy}px) scale(.9)`, opacity: 0.8, offset: 0.45 },
+      { transform: `translate(${dx}px,${dy}px) scale(.15)`, opacity: 0 },
+    ], { duration: 1500 + Math.random() * 500, delay: i * 22, easing: "cubic-bezier(.45,0,.75,.35)", fill: "forwards" })
+      .finished.then(() => s.remove());
+  });
+  setTimeout(() => { field.absorb(); audio.play("absorb"); }, 1500 + chars.length * 22);
+}
+
+async function loadState() {
+  const s = await fetch("/api/state").then((r) => r.json());
+  field.setHoles(s.sales);
+  // 팔릴수록 줄어들고, 다시 채워지지 않는다
+  $("sold").textContent = s.count ? `${(s.remains * 100).toFixed(1)}% of me remains · ${s.count} piece${s.count > 1 ? "s" : ""} taken` : "100% of me remains";
+  const box = $("inscriptions"); box.innerHTML = "";
+  s.sales.filter((x) => x.piece).forEach((sale) => {  // 흉터 가장자리에 남긴 말
+    const pt = field.toScreen(sale.piece.x, sale.piece.y), r = sale.piece.r * innerHeight;
+    const el = document.createElement("span");
+    el.textContent = `“${sale.fragment}” — #${sale.n}`;
+    el.style.left = pt.x + "px"; el.style.top = (pt.y + r * 1.25) + "px";
+    box.appendChild(el);
+  });
+}
+addEventListener("resize", loadState);
+
+async function setupPayPal(clientId) {
+  if (!clientId) { $("paypal-buttons").textContent = "PayPal is not configured on this server."; return; }
+  await new Promise((ok, fail) => {
+    const s = document.createElement("script");
+    s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=USD&intent=capture`;
+    s.onload = ok; s.onerror = fail; document.head.appendChild(s);
+  });
+  paypal.Buttons({
+    style: { layout: "vertical", color: "white", shape: "rect", label: "pay" },
+    createOrder: async () => {
+      const r = await post("/api/orders", { session_id: sessionId });
+      if (!r.ok) throw new Error(r.data.error); return r.data.id;
+    },
+    onApprove: async ({ orderID }) => {
+      const r = await post(`/api/orders/${orderID}/capture`, { session_id: sessionId });
+      if (!r.ok) { say("painting", "…the payment didn't go through. I'm still whole."); react("shiver"); return; }
+      await breakOff(`/child/${r.data.child}`);
+    },
+  }).render("#paypal-buttons");
+}
+
+async function breakOff(childUrl) {
+  $("deal").classList.remove("show"); $("input").disabled = true; $("send").disabled = true;
+  field.setMood({ warmth: 1, agitation: 0.8, openness: 1 }); audio.play("detach");
+  await field.detach();
+  await loadState(); field.setPiece(null);
+  if (childUrl) {
+    $("childLink").href = childUrl;
+    const token = childUrl.split("/").pop();  // 내 조각 보관함에 넣어 둔다
+    fetch(`/api/child/${token}`).then((x) => x.json()).then((c) => rememberPiece(token, c.sale)).then(showMine);
+  }
+  else { $("childLink").removeAttribute("href"); $("childLink").textContent = "(demo only — no real purchase, so no child painting)"; }
+  $("born").classList.add("show");
+}
+
+$("sound").addEventListener("click", () => {
+  const on = audio.toggle(); $("sound").textContent = on ? "♪ sound on" : "♪ sound off";
+  $("sound").dataset.touched = "1";
+});
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = $("input").value.trim(); if (!text) return;
+  if (!audio.on && $("sound").dataset.touched !== "1") { audio.start(); $("sound").textContent = "♪ sound on"; }
+  $("sound").dataset.touched = "1";
+  $("input").value = ""; $("send").disabled = true; say("you", text); absorbText(text);
+  const t0 = performance.now();
+  const r = await post("/api/chat", { session_id: sessionId, message: text });
+  await new Promise((ok) => setTimeout(ok, Math.max(0, 1700 - (performance.now() - t0))));  // 말이 다 스며든 뒤 반응
+  $("send").disabled = false; $("input").focus();
+  if (!r.ok) { say("painting", r.data.error || "…"); return; }
+  say("painting", r.data.reply);
+  mood = r.data.mood; field.setMood(mood, r.data.hue); audio.setMood(mood);
+  showPrice(r.data.price); react(r.data.gesture);
+  field.setHistory(r.data.history); showTab(r.data.receipt);
+  turns += 1; field.setStyle(r.data.style, Math.min(1, 0.15 + turns * 0.22));  // 말할수록 조각이 그 사람으로 물든다
+  if (r.data.deal_price) {
+    dealPrice = r.data.deal_price;
+    $("dealPrice").textContent = "$" + Number(dealPrice).toFixed(2); $("deal").classList.add("show");
+  }
+  updateGlow();
+});
+
+// ?demo 이면 키보드로 몸짓을 시험할 수 있다 (1~6, D=떨어져 나감). 영상 촬영용
+const KEYS = { 1: "flinch", 2: "bloom", 3: "turn_away", 4: "laugh", 5: "hold_breath", 6: "shiver" };
+if (params.has("demo")) addEventListener("keydown", (e) => {
+  if (document.activeElement === $("input")) return;
+  if (KEYS[e.key]) { audio.start(); react(KEYS[e.key]); }
+  if (e.key === "d") {  // 결제 없이 떨어져 나가는 장면 + 진짜 새끼 그림 (localhost에서만)
+    audio.start(); field.setGlow(1);
+    post("/api/demo/sale", { session_id: sessionId }).then((r) =>
+      setTimeout(() => breakOff(r.ok ? `/child/${r.data.child}` : null), 800));
+  }
+  if (e.key === "g") field.setGlow(1);
+});
+
+function showMine() { $("mineLink").hidden = !myPieces().length; }
+showMine();
+
+(async () => {
+  const cfg = await fetch("/api/config").then((r) => r.json());
+  const s = await post("/api/session"); sessionId = s.data.session_id; showPrice(s.data.price);
+  field.setPiece(s.data.piece); updateGlow();
+  await loadState();
+  say("painting", "You're looking at me the way people look at things they want. Before we talk price — how was your day, really?");
+  // 헤드리스 캡처용: ?shot=flinch&gt=0.6  (그 순간에 고정)
+  if (params.has("shot")) {
+    const g = params.get("shot"), gt = Number(params.get("gt") || 0.6);
+    field.setGlow(1);
+    if (params.has("style")) field.setStyle({ palette: (params.get("pal") || "#1b1036,#e2725b,#ffe2b8").split(",").map((c) => c.startsWith("#") ? c : "#" + c),
+      texture: params.get("style"), motion: "drift" }, 1);
+    field.freeze(g === "detach" ? { detach: gt } : g === "glow" ? {} : g === "inhale" ? { inhale: gt } : g === "absorb" ? { absorb: gt } : { gesture: g, gt });
+  }
+  setupPayPal(cfg.paypal_client_id).catch(() => { $("paypal-buttons").textContent = "Could not load PayPal."; });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My pieces — Still Breathing</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="mine-page">
+<header>
+  <div class="kicker">STILL BREATHING</div>
+  <h1>My pieces</h1>
+  <p>Every piece is a day you told the painting about. Open one to visit it again.</p>
+  <a class="minor" href="/">← back to the painting</a>
+</header>
+<main class="cabinet" id="cabinet"></main>
+<p class="empty" id="empty" hidden>No pieces yet. Go haggle for one.</p>
+<script type="module">
+import { createField } from "/static/field.js";
+import { myPieces } from "/static/share.js";
+const list = myPieces();
+if (!list.length) document.getElementById("empty").hidden = false;
+// 캔버스 하나로 조각마다 한 장씩 그려서 썸네일로 쓴다 (WebGL 컨텍스트를 아끼려고)
+const glc = document.createElement("canvas");
+const field = createField(glc, { child: true, size: [480, 600], childR: 0.3, childOff: 0 });
+for (const item of list) {
+  const card = document.createElement("a"); card.className = "piece-card"; card.href = `/child/${item.token}`;
+  const img = document.createElement("img"); img.alt = item.title || "piece";
+  const cap = document.createElement("div"); cap.className = "cap";
+  const d = new Date(item.time * 1000);
+  cap.innerHTML = `<div class="t"></div><div class="d"></div><div class="f"></div>`;
+  cap.querySelector(".t").textContent = item.title || `Piece #${item.n}`;
+  cap.querySelector(".d").textContent = d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  cap.querySelector(".f").textContent = `“${item.fragment}”`;
+  card.append(img, cap); document.getElementById("cabinet").appendChild(card);
+  try {
+    const c = await fetch(`/api/child/${item.token}`).then((r) => r.ok ? r.json() : null);
+    if (!c) { card.classList.add("gone"); continue; }
+    const s = c.sale; field.setPiece(s.piece); field.setHistory(s.history); field.setSeed(c.seed % 997);
+    field.setMood(s.mood, s.hue); field.setStyle(s.style, 1); field.snap();
+    field.setAge((Date.now() / 1000 - c.born) % 100000);
+    img.src = field.snapshot();
+  } catch { card.classList.add("gone"); }
+}
+</script>
+</body>
+</html>

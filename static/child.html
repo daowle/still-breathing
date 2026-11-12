@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A piece of Still Breathing</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="child-page">
+<canvas id="field"></canvas>
+<div class="title">
+  <div class="kicker" id="kicker">STILL BREATHING</div>
+  <h1 id="name">…</h1>
+  <p id="sub"></p>
+</div>
+<div class="price">
+  <button class="sound" id="sound" type="button">♪ sound off</button>
+  <div><a class="minor" href="/mine">my pieces →</a></div>
+</div>
+<div class="child-card">
+  <div class="greet" id="greet">…</div>
+  <blockquote id="quote"></blockquote>
+  <div class="receipt" id="receipt" hidden></div>
+  <div class="meta" id="meta"></div>
+  <div class="share">
+    <button id="saveImg" type="button">Wall label card</button>
+    <button id="saveRcpt" type="button" class="ghost">Receipt card</button>
+    <button id="saveVid" type="button" class="ghost">6s video</button>
+  </div>
+  <div class="ritual" id="ritual" hidden>
+    <p>Keep the receipt, and you can show what you paid with. Burn it, and no one ever can —
+       but the piece becomes wholly yours, and gold settles on it. <i>(after Yves Klein, 1959)</i></p>
+    <button id="burn" type="button" class="ghost">Burn the receipt</button>
+  </div>
+  <div class="hint" id="shareHint">A 9:16 card for Instagram / TikTok. Your words are printed on it — share only if you want to.</div>
+</div>
+<script type="module">
+import { createField } from "/static/field.js";
+import { createAudio } from "/static/audio.js";
+import { rememberPiece, storyImage, storyVideo, shareOrDownload, receiptModel, money } from "/static/share.js";
+const field = createField(document.getElementById("field"), { child: true });
+const audio = createAudio();
+const token = location.pathname.split("/").pop();
+const $ = (id) => document.getElementById(id);
+let child;
+
+(async () => {
+  const r = await fetch(`/api/child/${token}`);
+  if (!r.ok) { $("greet").textContent = "There is no piece here."; return; }
+  child = await r.json(); const s = child.sale, st = s.style || {};
+  rememberPiece(token, s);
+  if (s.piece) field.setPiece(s.piece);
+  field.setHistory(s.history);
+  // 태어난 뒤 흐른 시간만큼 자라 있다: 날이 갈수록 차분해지고 넓게 열린다
+  const ageSec = Date.now() / 1000 - child.born, ageDays = ageSec / 86400;
+  field.setAge(ageSec % 100000);
+  const m = { warmth: s.mood.warmth, agitation: s.mood.agitation * Math.exp(-ageDays / 7),
+              openness: Math.min(1, s.mood.openness + ageDays / 30) };
+  field.setSeed(child.seed % 997); field.setMood(m, s.hue); field.setStyle(st, 1); field.snap(); audio.setMood(m);
+  document.title = `${st.title || "A piece"} — Still Breathing`;
+  $("kicker").textContent = `STILL BREATHING · PIECE #${s.n}`;
+  $("name").textContent = st.title || "Untitled, today";
+  const born = new Date(child.born * 1000);
+  $("sub").textContent = `${born.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} · ${st.texture || "smoke"}, ${st.motion || "drift"}`;
+  $("quote").textContent = `“${s.fragment}”`;
+  const line = (t) => { const d = document.createElement("div"); d.textContent = t; $("meta").appendChild(d); };
+  if (s.receipt) {  // 무엇으로 값을 치렀는지
+    const m = receiptModel(s, 12), R = $("receipt"); R.hidden = false;
+    const add = (cls, l, r) => { const d = document.createElement("div"); d.className = cls;
+      const a = document.createElement("span"); a.textContent = l; const b = document.createElement("b"); b.textContent = r;
+      d.append(a, b); R.appendChild(d); };
+    add("r-head", `PIECE Nº ${String(m.no).padStart(3, "0")}`, m.date);
+    add("r-row", "asking price", money(m.asking));
+    m.items.forEach((x) => add("r-row", x.label, money(x.amount)));
+    add("r-total", "paid via PayPal", money(m.paid));
+    add("r-day", m.day, "");
+    $("ritual").hidden = false;
+  } else if (s.burned) {
+    $("saveRcpt").hidden = true;
+    line(`Receipt burned ${new Date(s.burned * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}. You are its definitive owner.`);
+  }
+  field.setGold(s.burned ? 1 : 0);
+  line("Its hole in the parent painting is edged with your words, and shaped like this haggle.");
+  const g = await fetch(`/api/child/${token}/greet`, { method: "POST" }).then((x) => x.json());
+  $("greet").textContent = g.greeting || "…";
+  line(`Visit #${g.visits}`);
+  setTimeout(() => field.gesture("bloom"), 600);  // 알아보고 반긴다
+  if (new URLSearchParams(location.search).has("story")) {  // 확인용: 스토리 카드를 화면에 그대로 띄운다
+    const url = URL.createObjectURL(await storyImage(child, new URLSearchParams(location.search).get("story") || "label"));
+    document.body.innerHTML = `<img src="${url}" style="height:100vh;display:block;margin:auto">`;
+  }
+})();
+
+$("sound").addEventListener("click", () => {
+  const on = audio.toggle(); $("sound").textContent = on ? "♪ sound on" : "♪ sound off";
+  if (on) audio.play("bloom");
+});
+// 두 번 눌러야 탄다 (되돌릴 수 없음)
+let armed = false;
+$("burn").addEventListener("click", async () => {
+  if (!armed) { armed = true; $("burn").textContent = "Burn it. This can't be undone."; $("burn").classList.add("armed"); return; }
+  $("burn").disabled = true; audio.start(); audio.play("detach");
+  $("receipt").classList.add("burning");
+  const r = await fetch(`/api/child/${token}/burn`, { method: "POST" });
+  await new Promise((ok) => setTimeout(ok, 2600));
+  if (!r.ok) { $("receipt").classList.remove("burning"); $("burn").disabled = false; return; }
+  $("receipt").remove(); $("ritual").innerHTML = "<p>The receipt is ash. The piece is wholly yours now.</p>";
+  child.sale.burned = Date.now() / 1000; child.sale.receipt = null; $("saveRcpt").hidden = true;
+  let g = 0; const t = setInterval(() => { g = Math.min(1, g + 0.04); field.setGold(g); if (g >= 1) clearInterval(t); }, 50);
+  field.gesture("bloom");
+});
+const fname = (ext) => `still-breathing-piece-${child.sale.n}.${ext}`;
+$("saveImg").addEventListener("click", async () => {
+  if (!child) return; $("saveImg").disabled = true; $("saveImg").textContent = "Painting…";
+  const blob = await storyImage(child);
+  await shareOrDownload(blob, fname("png"), child.sale.style?.title || "Still Breathing");
+  $("saveImg").disabled = false; $("saveImg").textContent = "Wall label card";
+});
+$("saveRcpt").addEventListener("click", async () => {
+  if (!child) return; $("saveRcpt").disabled = true;
+  await shareOrDownload(await storyImage(child, "receipt"), fname("receipt.png"), "Still Breathing — receipt");
+  $("saveRcpt").disabled = false;
+});
+$("saveVid").addEventListener("click", async () => {
+  if (!child) return; $("saveVid").disabled = true;
+  try {
+    const blob = await storyVideo(child, 6, (k) => ($("saveVid").textContent = `Recording ${Math.round(k * 100)}%`));
+    await shareOrDownload(blob, fname(blob.type.includes("mp4") ? "mp4" : "webm"), child.sale.style?.title || "Still Breathing");
+  } catch (e) { $("shareHint").textContent = e.message; }
+  $("saveVid").disabled = false; $("saveVid").textContent = "6s video";
+});
+</script>
+</body>
+</html>
