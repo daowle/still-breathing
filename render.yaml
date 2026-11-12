@@ -14,3 +14,5 @@ services:
         sync: false
       - key: PAYPAL_ENV
         value: sandbox
+      - key: PYTHONUNBUFFERED
+        value: "1"

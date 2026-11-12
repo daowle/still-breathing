@@ -26,6 +26,9 @@ import painting  # noqa: E402  (env를 먼저 읽어야 함)
 import paypal  # noqa: E402
 from store import Store  # noqa: E402
 
+for _k in ("PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_SECRET", "PAYPAL_ENV", "ANTHROPIC_API_KEY"):
+    if _k in os.environ:  # 대시보드에 붙여 넣다 섞인 공백·줄바꿈 제거
+        os.environ[_k] = os.environ[_k].strip()
 store = Store(os.environ.get("DATA_PATH", str(ROOT / "data" / "state.json")))
 MAX_TURNS, MAX_CHARS = 30, 500
 _last_hit = {}
@@ -125,7 +128,7 @@ class Handler(BaseHTTPRequestHandler):
             print("PayPal error:", e)
             return self._json({"error": "payment service error"}, 502)
         except Exception as e:  # 데모 중 서버가 죽지 않게
-            print("Error:", repr(e))
+            import traceback; traceback.print_exc()
             return self._json({"error": "the painting is having trouble breathing"}, 500)
         return self._json({"error": "not found"}, 404)
 
