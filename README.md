@@ -2,6 +2,8 @@
 
 **A painting that sells itself — and makes you pay with yourself.**
 
+**Live demo:** https://still-breathing.onrender.com (PayPal sandbox — no real money; first load may take ~50 s to wake) · **Video:** https://youtu.be/zQL-6Na0Gdc
+
 Still Breathing is a living WebGL painting with a voice (Claude). You don't buy it at a fixed price: you haggle.
 Tell it about your day, your taste, a name you still carry — and it lowers its price. Lowball it or flatter it, and it notices.
 When you agree, you pay the agreed amount through **PayPal (sandbox)**.
